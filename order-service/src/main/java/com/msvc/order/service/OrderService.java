@@ -5,9 +5,11 @@ import com.msvc.order.dto.OrderLineItemDto;
 import com.msvc.order.dto.OrderRequest;
 import com.msvc.order.entity.Order;
 import com.msvc.order.entity.OrderLineItems;
+import com.msvc.order.event.OrderPlacedEvent;
 import com.msvc.order.repository.OrderRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.reactive.function.client.WebClient;
@@ -27,6 +29,9 @@ public class OrderService {
 
     @Autowired
     private WebClient.Builder webClientBuilder;
+
+    @Autowired
+    private KafkaTemplate<String, OrderPlacedEvent> kafkaTemplate;
 
     // Procesa y guarda un nuevo pedido
     public String placeOrder(OrderRequest orderRequest) {
@@ -92,6 +97,10 @@ public class OrderService {
 
         // Todos los productos existen y tienen stock.
         orderRepository.save(order); // Guardar pedido
+
+        // Una vez guardada la orden enviamos un mensaje de un servicio a otro
+        kafkaTemplate.send("notificationTopic", new OrderPlacedEvent(order.getNumeroPedido()));
+
         return "Pedido ordenado con exito";
     }
 
